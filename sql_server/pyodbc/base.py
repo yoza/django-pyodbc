@@ -357,6 +357,8 @@ class CursorWrapper(object):
                     fr.append(force_unicode(row.decode(self.decode_unicode).encode('utf-8')))
                 except AttributeError:
                     fr.append(row)
+                except UnicodeEncodeError:
+                    fr.append(row)
             else:
                 fr.append(row)
 
