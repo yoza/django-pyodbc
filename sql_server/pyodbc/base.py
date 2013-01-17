@@ -359,6 +359,8 @@ class CursorWrapper(object):
                     fr.append(row)
                 except UnicodeEncodeError:
                     fr.append(row)
+                except UnicodeDecodeError:
+                    fr.append(row)
             else:
                 fr.append(row)
 
