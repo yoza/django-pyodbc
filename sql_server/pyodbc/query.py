@@ -207,7 +207,7 @@ def query_class(QueryClass):
                 if not ordering:
                     meta = self.get_meta()
                     qn = self.quote_name_unless_alias
-                    # Special case: pk not in out_cols, use random ordering. 
+                    # Special case: pk not in out_cols, use random ordering.
                     #
                     if '%s.%s' % (qn(meta.db_table), qn(meta.pk.db_column or meta.pk.column)) not in self.get_columns():
                         ordering = ['RAND()']
@@ -222,8 +222,19 @@ def query_class(QueryClass):
 
             if strategy == USE_ROW_NUMBER:
                 ord = ', '.join(['%s %s' % pair for pair in self._ord])
+                """
+                columns_to_order_by = []
+                for alias_name, type_of_order in self._ord:
+                    for column in self.get_columns(True):
+                        if column.endswith("AS [%s]" % alias_name):
+                            columns_to_order_by.append((column.partition("AS")[0].strip(),type_of_order))
+                            break
+                if len(columns_to_order_by):
+                    ord = ', '.join(['%s %s' % pair for pair in columns_to_order_by])
+                else:
+                    ord = ', '.join(['%s %s' % pair for pair in self._ord])
+                """
                 self.ordering_aliases.append('(ROW_NUMBER() OVER (ORDER BY %s)) AS [rn]' % ord)
-
             # This must come after 'select' and 'ordering' -- see docstring of
             # get_from_clause() for details.
             from_, f_params = self.get_from_clause()
