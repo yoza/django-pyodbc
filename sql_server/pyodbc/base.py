@@ -21,7 +21,7 @@ from django.db.backends import BaseDatabaseWrapper, BaseDatabaseFeatures, BaseDa
 from django.db.backends.signals import connection_created
 from django.conf import settings
 from django import VERSION as DjangoVersion
-from django.utils.encoding import force_unicode
+from django.utils.encoding import force_unicode, smart_unicode, smart_str
 
 if DjangoVersion[:2] == (1,4):
     # Django version 1.4 adds a backwards incompatible change to
@@ -211,7 +211,7 @@ class DatabaseWrapper(BaseDatabaseWrapper):
                 else:
                     cstr_parts.append('SERVERNAME=%s' % host_str)
 
-            self.decode_unicode = options.get('decode_unicode', None)
+            self.db_unicode = options.get('db_unicode', None)
 
             if user_str:
                 cstr_parts.append('UID=%s;PWD=%s' % (user_str, passwd_str))
@@ -269,7 +269,7 @@ class DatabaseWrapper(BaseDatabaseWrapper):
             if self.drv_name.startswith('LIBTDSODBC') and not self.connection.autocommit:
                 self.connection.commit()
 
-        return CursorWrapper(cursor, self.driver_needs_utf8, self.decode_unicode)
+        return CursorWrapper(cursor, self.driver_needs_utf8, self.db_unicode)
 
 
 class CursorWrapper(object):
@@ -277,12 +277,12 @@ class CursorWrapper(object):
     A wrapper around the pyodbc's cursor that takes in account a) some pyodbc
     DB-API 2.0 implementation and b) some common ODBC driver particularities.
     """
-    def __init__(self, cursor, driver_needs_utf8, decode_unicode):
+    def __init__(self, cursor, driver_needs_utf8, db_unicode):
         self.cursor = cursor
         self.driver_needs_utf8 = driver_needs_utf8
         self.last_sql = ''
         self.last_params = ()
-        self.decode_unicode = decode_unicode
+        self.db_unicode = db_unicode
     def format_sql(self, sql, n_params=None):
         if self.driver_needs_utf8 and isinstance(sql, unicode):
             # FreeTDS (and other ODBC drivers?) doesn't support Unicode
@@ -303,13 +303,13 @@ class CursorWrapper(object):
                 if self.driver_needs_utf8:
                     # FreeTDS (and other ODBC drivers?) doesn't support Unicode
                     # yet, so we need to encode parameters in utf-8
-                     fp.append(bytearray(p.encode('utf-16le')))
+                     fp.append(bytearray(p.encode(self.db_unicode)))
                 else:
                     fp.append(p)
             elif isinstance(p, str):
                 if self.driver_needs_utf8:
                     # TODO: use system encoding when calling decode()?
-                    fp.append(bytearray(p.decode('utf-8').encode('utf-16le')))
+                    fp.append(bytearray(p.decode('utf-8').encode(self.db_unicode)))
                 else:
                     fp.append(p)
             elif isinstance(p, type(True)):
@@ -352,18 +352,17 @@ class CursorWrapper(object):
         for row in rows:
             if isinstance(row, str):
                 fr.append(row.decode('utf-8'))
-            elif self.decode_unicode:
+            elif isinstance(row, unicode) and self.db_unicode:
                 try:
-                    fr.append(force_unicode(row.decode(self.decode_unicode).encode('utf-8')))
+                    fr.append(row.decode(self.db_unicode).encode('utf-8'))
                 except AttributeError:
                     fr.append(row)
                 except UnicodeEncodeError:
-                    fr.append(row)
+                    fr.append(row.replace('\x00',''))
                 except UnicodeDecodeError:
                     fr.append(row)
             else:
                 fr.append(row)
-
         return tuple(fr)
 
     def fetchone(self):
