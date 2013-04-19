@@ -312,7 +312,11 @@ class CursorWrapper(object):
                 if self.driver_needs_utf8:
                     # FreeTDS (and other ODBC drivers?) doesn't support Unicode
                     # yet, so we need to encode parameters in utf-8
-                    fp.append(p.encode('utf-8'))
+                    #fp.append(p.encode('utf-8'))
+                    # -------------------------------------------------------------
+                    # utf-8 in this case is not working, replaced it for bytearray ...
+                    # 19/04/13 Oleg Prans
+                    fp.append(bytearray(p.encode('utf-16le')))
                 else:
                     fp.append(p)
 
