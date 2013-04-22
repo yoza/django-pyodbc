@@ -309,7 +309,7 @@ class CursorWrapper(object):
             elif isinstance(p, str):
                 if self.driver_needs_utf8:
                     # TODO: use system encoding when calling decode()?
-                    fp.append(bytearray(p.decode('utf-8').encode(self.db_unicode)))
+                    fp.append(p.decode('utf-8').encode('utf-8'))
                 else:
                     fp.append(p)
             elif isinstance(p, type(True)):
